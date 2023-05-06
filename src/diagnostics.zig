@@ -45,7 +45,7 @@ pub const DiagnosticQueue = struct {
         for (self.errors.items) |e| {
             try std.fmt.format(
                 str.writer(),
-                "\x1b[31;49mERROR\x1b[39;49m: {s}\n\n",
+                "\x1b[31;49mERROR\x1b[39;49m: {s}\n",
                 .{e.what},
             );
         }
@@ -53,7 +53,7 @@ pub const DiagnosticQueue = struct {
         for (self.warnings.items) |w| {
             try std.fmt.format(
                 str.writer(),
-                "\x1b[32;49mWARNING\x1b[39;49m: {s}\n\n",
+                "\x1b[32;49mWARNING\x1b[39;49m: {s}\n",
                 .{w.what},
             );
         }

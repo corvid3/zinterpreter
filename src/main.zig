@@ -1,6 +1,7 @@
 const std = @import("std");
 const _diagnostics = @import("diagnostics.zig");
 const lexer = @import("lexer.zig");
+const parser = @import("parser.zig");
 
 // allow for a max source-file size of 1M
 const MAX_FILESIZE = 1024 * 1024;
@@ -82,9 +83,19 @@ pub fn main() !void {
         std.debug.print("{?}\n", .{tok});
     }
 
+    // if there are errors in the lexing step, print, and halt
     if (diagnostics.has_errors()) {
         var d = try diagnostics.display_all();
         try std.io.getStdOut().writeAll(d);
         alloc.free(d);
     }
+
+    var nodes = parser.parse(alloc, &diagnostics, toks) catch {
+        var d = try diagnostics.display_all();
+        try std.io.getStdOut().writeAll(d);
+        alloc.free(d);
+        return;
+    };
+
+    _ = nodes;
 }

@@ -98,6 +98,7 @@ const VM = struct {
 
     pub fn run_function_str(self: *Self, name: []const u8) VMError!void {
         var func = self.functions.get(name) orelse return VMError.NoSuchFunction;
+        _ = func;
     }
 
     inline fn current_frame(self: *Self) *ExecutionFrame {

@@ -3,7 +3,7 @@ slice: []const u8,
 
 pub const Tag = enum(u8) {
     // special tag used to make parsing easier
-    NULL,
+    EOF,
 
     Identifier,
 
@@ -18,4 +18,7 @@ pub const Tag = enum(u8) {
     Minus,
     Asterisk,
     Solidus,
+
+    LeftParanthesis,
+    RightParanthesis,
 };

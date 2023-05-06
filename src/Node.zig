@@ -1,7 +1,7 @@
 tag: Tag,
 data: Data,
 
-const Tag = enum(u8) {
+pub const Tag = enum(u8) {
     Add,
     Sub,
     Mul,
@@ -9,17 +9,17 @@ const Tag = enum(u8) {
 
     Integer,
     Double,
+
+    UnaryNegation,
 };
 
-const Data = union {
+pub const Data = union {
     /// left + right point to indexes in the node list
     Binary: struct {
-        .left = u64,
-        .right = u64,
+        left: u64,
+        right: u64,
     },
 
-    Identifier: u64,
-
-    Integer: i64,
-    Double: f64,
+    /// contains a nodeidx or a tokidx
+    Unary: u64,
 };
