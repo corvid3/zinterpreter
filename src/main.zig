@@ -1,5 +1,6 @@
 const std = @import("std");
 const _diagnostics = @import("diagnostics.zig");
+const lexer = @import("lexer.zig");
 
 // allow for a max source-file size of 1M
 const MAX_FILESIZE = 1024 * 1024;
@@ -74,6 +75,12 @@ pub fn main() !void {
     defer alloc.free(filedata);
 
     std.debug.print("filedata: \n{s}\n", .{filedata});
+
+    var toks = try lexer.lex(alloc, &diagnostics, filedata);
+
+    for (toks.items(.tag)) |tok| {
+        std.debug.print("{?}\n", .{tok});
+    }
 
     if (diagnostics.has_errors()) {
         var d = try diagnostics.display_all();

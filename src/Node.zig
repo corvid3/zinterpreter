@@ -6,6 +6,9 @@ const Tag = enum(u8) {
     Sub,
     Mul,
     Div,
+
+    Integer,
+    Double,
 };
 
 const Data = union {

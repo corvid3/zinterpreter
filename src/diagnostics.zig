@@ -29,12 +29,12 @@ pub const DiagnosticQueue = struct {
         return self.errors.items.len != 0;
     }
 
-    pub inline fn push_error(self: *DiagnosticQueue, diagnostic: Diagnostic) !void {
-        try self.errors.append(self.alloc, diagnostic);
+    pub inline fn push_error(self: *DiagnosticQueue, diagnostic: Diagnostic) void {
+        self.errors.append(self.alloc, diagnostic) catch std.debug.panic("", .{});
     }
 
-    pub inline fn push_warning(self: *DiagnosticQueue, diagnostic: Diagnostic) !void {
-        try self.warnings.append(self.alloc, diagnostic);
+    pub inline fn push_warning(self: *DiagnosticQueue, diagnostic: Diagnostic) void {
+        self.warnings.append(self.alloc, diagnostic) catch std.debug.panic("", .{});
     }
 
     /// writes all diagnostics in order to a string which is returned
