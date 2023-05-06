@@ -1,4 +1,5 @@
 const std = @import("std");
+const _diagnostics = @import("diagnostics.zig");
 
 // allow for a max source-file size of 1M
 const MAX_FILESIZE = 1024 * 1024;
@@ -35,6 +36,9 @@ const Arguments = struct {
 pub fn main() !void {
     const alloc = std.heap.page_allocator;
 
+    var diagnostics = _diagnostics.DiagnosticQueue.init(alloc);
+    defer diagnostics.deinit();
+
     var args = Arguments.get_args(alloc) catch |e| {
         switch (e) {
             error.UnknownOption => {
@@ -70,4 +74,10 @@ pub fn main() !void {
     defer alloc.free(filedata);
 
     std.debug.print("filedata: \n{s}\n", .{filedata});
+
+    if (diagnostics.has_errors()) {
+        var d = try diagnostics.display_all();
+        try std.io.getStdOut().writeAll(d);
+        alloc.free(d);
+    }
 }

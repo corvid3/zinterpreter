@@ -6,7 +6,13 @@ pub const Tag = enum(u8) {
     NULL,
 
     Identifier,
-    Number, // all numbers will be parsed as double-precision floats
+
+    // all integers will be signed 64-bit vals,
+    //     TODO: eventually implement bignum
+    Integer,
+
+    // all floating point values will be double-precision
+    Double,
 
     Plus,
     Minus,
