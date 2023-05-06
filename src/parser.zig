@@ -1,28 +1,36 @@
+// the design of the parser and AST layout is influenced by the
+// zig codebase.
+
 const std = @import("std");
 const Token = @import("Token.zig");
-const Node = @import("Node.zig");
+const Ast = @import("Ast.zig");
 const _diagnostics = @import("diagnostics.zig");
 const Diagnostic = _diagnostics.Diagnostic;
+
+const Node = Ast.Node;
+const ExtraData = Ast.ExtraData;
 
 const Self = @This();
 
 alloc: std.mem.Allocator,
-tokens: std.MultiArrayList(Token),
+ast: Ast,
 idx: u64 = 0,
-
-nodes: std.MultiArrayList(Node) = .{},
-
 diagnostics: *_diagnostics.DiagnosticQueue,
 
 const Error = error{Misparse};
 
-fn pushNode(self: *Self, node: Node) u64 {
-    self.nodes.append(self.alloc, node) catch std.debug.panic("memory error in pushNode", .{});
-    return self.nodes.len - 1;
+inline fn pushNode(self: *Self, node: Node) u64 {
+    self.ast.nodes.append(self.alloc, node) catch std.debug.panic("memory error in pushNode", .{});
+    return self.ast.nodes.len - 1;
+}
+
+inline fn pushNodeWithExtra(self: *Self, node: Node, ext: ExtraData) u64 {
+    self.ast.extra_data.append(self.alloc, ext) catch std.debug.panic("memory error in pushNodeWithExtra", .{});
+    return self.pushNode(node);
 }
 
 fn parseFactor(self: *Self) Error!u64 {
-    const tag = self.tokens.items(.tag)[self.idx];
+    const tag = self.ast.getTokTags()[self.idx];
 
     self.idx += 1;
 
@@ -48,7 +56,7 @@ fn parseFactor(self: *Self) Error!u64 {
             self.diagnostics.push_error(
                 Diagnostic{
                     .what = "Unknown token when trying to parse a factor.",
-                    .where = self.tokens.items(.slice)[self.idx],
+                    .where = self.ast.getTokSlice()[self.idx],
                 },
             );
 
@@ -61,7 +69,7 @@ fn parseTerm(self: *Self) Error!u64 {
     var left = try self.parseFactor();
 
     while (true) {
-        const op = self.tokens.items(.tag)[self.idx];
+        const op = self.ast.getTokTags()[self.idx];
 
         if (op != .Asterisk and op != .Solidus) break;
 
@@ -90,7 +98,7 @@ fn parseExpr(self: *Self) Error!u64 {
     var left = try self.parseTerm();
 
     while (true) {
-        const op = self.tokens.items(.tag)[self.idx];
+        const op = self.ast.getTokTags()[self.idx];
 
         if (op != .Plus and op != .Minus) break;
 
@@ -119,18 +127,20 @@ pub fn parse(
     alloc: std.mem.Allocator,
     diagnostics: *_diagnostics.DiagnosticQueue,
     tokens: std.MultiArrayList(Token),
-) Error!std.MultiArrayList(Node) {
+) Error!Ast {
     var self = Self{
         .alloc = alloc,
-        .tokens = tokens,
         .diagnostics = diagnostics,
+        .ast = Ast{
+            .toks = tokens,
+        },
     };
 
     _ = try self.parseExpr();
 
-    for (self.nodes.items(.tag)) |*n| {
+    for (self.ast.nodes.items(.tag)) |*n| {
         std.debug.print("{?}\n", .{n});
     }
 
-    return self.nodes;
+    return self.ast;
 }
