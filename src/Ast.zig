@@ -33,9 +33,14 @@ pub const Node = struct {
         Double,
 
         UnaryNegation,
+
+        FunctionCall,
+        FunctionDef,
     };
 
     pub const Data = union {
+        null: void,
+
         /// left + right point to indexes in the node list
         Binary: struct {
             left: u64,
@@ -50,11 +55,20 @@ pub const Node = struct {
     };
 };
 
-pub const ExtraData = union(enum(u8)) {
+pub const ExtraData = union {
+    null: void,
+
     FunctionDef: struct {
         name: []const u8,
 
-        block: []const u64,
+        block: std.ArrayListUnmanaged(u64),
+    },
+
+    FunctionCall: struct {
+        name: []const u8,
+
+        /// indices into the node-list, params are in order left->right
+        params: []const u64,
     },
 
     pub fn deinit(self: *ExtraData, alloc: std.mem.Allocator) void {

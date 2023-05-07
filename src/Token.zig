@@ -5,6 +5,9 @@ pub const Tag = enum(u8) {
     // special tag used to make parsing easier
     EOF,
 
+    // used for blocks
+    Whitespace,
+
     Identifier,
 
     // all integers will be signed 64-bit vals,

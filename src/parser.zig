@@ -20,13 +20,36 @@ diagnostics: *_diagnostics.DiagnosticQueue,
 const Error = error{Misparse};
 
 inline fn pushNode(self: *Self, node: Node) u64 {
-    self.ast.nodes.append(self.alloc, node) catch std.debug.panic("memory error in pushNode", .{});
+    self.ast.nodes.append(
+        self.alloc,
+        node,
+    ) catch std.debug.panic(
+        "memory error in pushNode",
+        .{},
+    );
     return self.ast.nodes.len - 1;
 }
 
 inline fn pushNodeWithExtra(self: *Self, node: Node, ext: ExtraData) u64 {
-    self.ast.extra_data.append(self.alloc, ext) catch std.debug.panic("memory error in pushNodeWithExtra", .{});
+    self.ast.extra_data.append(
+        self.alloc,
+        ext,
+    ) catch std.debug.panic(
+        "memory error in pushNodeWithExtra",
+        .{},
+    );
+
     return self.pushNode(node);
+}
+
+fn expect(self: *Self, tag: Token.Tag, comptime move: bool) !u64 {
+    if (self.ast.getTokTags()[self.idx] != tag) {
+        return error.Misparse;
+    } else {
+        const idx = self.idx;
+        if (move) self.idx += 1;
+        return idx;
+    }
 }
 
 fn parseFactor(self: *Self) Error!u64 {
@@ -123,6 +146,35 @@ fn parseExpr(self: *Self) Error!u64 {
     return left;
 }
 
+fn parseBlock(self: *Self) Error!std.ArrayListUnmanaged(u64) {
+    const blockDepth = self.ast.getTokSlice()[
+        try self.expect(
+            .Whitespace,
+            true,
+        )
+    ].len;
+
+    var blocknodes = std.ArrayListUnmanaged(u64){};
+
+    while (true) {
+        blocknodes.append(
+            self.alloc,
+            try self.parseExpr(),
+        ) catch std.debug.panic("memory error in blocknodes, at parseBlock", .{});
+
+        const nextBlockDepth = self.ast.getTokSlice()[
+            try self.expect(
+                .Whitespace,
+                false,
+            )
+        ].len;
+
+        if (nextBlockDepth != blockDepth) break else self.idx += 1;
+    }
+
+    return blocknodes;
+}
+
 pub fn parse(
     alloc: std.mem.Allocator,
     diagnostics: *_diagnostics.DiagnosticQueue,
@@ -136,7 +188,17 @@ pub fn parse(
         },
     };
 
-    _ = try self.parseExpr();
+    // reserve a special entry node, at idx 0
+    _ = self.pushNode(Node{ .tag = .Add, .data = .{ .null = {} } });
+    const block = try self.parseBlock();
+    self.ast.nodes.items(.tag)[0] = .FunctionDef;
+    self.ast.extra_data.append(
+        self.alloc,
+        ExtraData{ .FunctionDef = .{
+            .name = "main",
+            .block = block,
+        } },
+    ) catch std.debug.panic("", .{});
 
     for (self.ast.nodes.items(.tag)) |*n| {
         std.debug.print("{?}\n", .{n});

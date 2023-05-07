@@ -14,6 +14,10 @@ pub fn lex(alloc: std.mem.Allocator, diagnostics: *_diagnostics.DiagnosticQueue,
 
     var toks = std.MultiArrayList(Token){};
 
+    // push a 1-level whitespace token into the queue
+    // (1-level is the lowest whitespace token)
+    try toks.append(alloc, Token{ .tag = .Whitespace, .slice = str[0..1] });
+
     while (true) {
         var tok = lexer.lexOne() catch break;
         try toks.append(alloc, tok);
@@ -42,6 +46,12 @@ inline fn rtok(self: *Self, tag: Token.Tag) Token {
 }
 
 fn lexOne(self: *Self) error{ EOF, UnknownToken, Err }!Token {
+    std.debug.print("{?} ", .{self.peekChar()});
+    if ((self.peekChar() orelse return error.EOF) == '\n') {
+        while ((self.peekChar() orelse 0x00) == ' ') : (_ = self.nextChar()) {}
+        return self.rtok(.Whitespace);
+    }
+
     while (std.ascii.isWhitespace(
         self.peekChar() orelse return error.EOF,
     )) self.idx += 1;
@@ -65,6 +75,9 @@ fn lexOne(self: *Self) error{ EOF, UnknownToken, Err }!Token {
 
                     self.idx += 1;
                 }
+
+                // dumb hack (see self.rtok)
+                self.idx -= 1;
 
                 const slice = self.str[self.begin..self.idx];
                 const dec_count = std.mem.count(u8, slice, ".");

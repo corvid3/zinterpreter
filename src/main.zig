@@ -79,8 +79,10 @@ pub fn main() !void {
 
     var toks = try lexer.lex(alloc, &diagnostics, filedata);
 
-    for (toks.items(.tag)) |tok| {
-        std.debug.print("{?}\n", .{tok});
+    var tokt = toks.items(.tag);
+    var toksl = toks.items(.slice);
+    for (0..toks.len) |l| {
+        std.debug.print("{?} {?}\n", .{ tokt[l], toksl[l].len });
     }
 
     // if there are errors in the lexing step, print, and halt
