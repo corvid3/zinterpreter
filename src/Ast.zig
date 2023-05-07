@@ -5,6 +5,9 @@ toks: std.MultiArrayList(Token),
 nodes: std.MultiArrayList(Node) = .{},
 extra_data: std.ArrayListUnmanaged(ExtraData) = .{},
 
+/// a list of nodidx's which point to functiondefs in the node manifest
+functions: std.ArrayListUnmanaged(u64) = .{},
+
 pub fn deinit(self: *@This(), alloc: std.mem.Allocator) void {
     self.toks.deinit(alloc);
     self.nodes.deinit(alloc);
@@ -79,3 +82,70 @@ pub const ExtraData = union {
         }
     }
 };
+
+/// prints an entire AST to a string, beautified
+/// caller owns returned string
+pub fn prettyPrint(alloc: std.mem.Allocator, ast: @This()) ![]u8 {
+    var str = std.ArrayList(u8).init(alloc);
+    var strw = str.writer();
+
+    for (ast.functions.items) |fidx| {
+        try prettyPrintInternal(strw, ast, fidx, 0);
+    }
+
+    return try str.toOwnedSlice();
+}
+
+fn prettyPrintInternal(str: std.ArrayList(u8).Writer, ast: @This(), fidx: u64, indent: u64) !void {
+    // add an indent
+    for (0..indent) |_| try std.fmt.format(str, "  ", .{});
+
+    const nodetype = ast.nodes.items(.tag)[fidx];
+    const nodedata = ast.nodes.items(.data)[fidx];
+
+    switch (nodetype) {
+        // literals
+        Node.Tag.Integer => try std.fmt.format(
+            str,
+            "INTEGER = {s}\n",
+            .{ast.getTokSlice()[nodedata.Unary]},
+        ),
+
+        Node.Tag.Double => try std.fmt.format(
+            str,
+            "DOUBLE = {s}\n",
+            .{ast.getTokSlice()[nodedata.Unary]},
+        ),
+
+        Node.Tag.UnaryNegation => {},
+
+        // binary operations
+        Node.Tag.Add, Node.Tag.Sub, Node.Tag.Mul, Node.Tag.Div => {
+            const ts = switch (nodetype) {
+                .Add => "ADD",
+                .Sub => "SUB",
+                .Mul => "MUL",
+                .Div => "DIV",
+                else => unreachable,
+            };
+
+            try std.fmt.format(str, "{s}\n", .{ts});
+            try prettyPrintInternal(str, ast, nodedata.Binary.left, indent + 1);
+            try prettyPrintInternal(str, ast, nodedata.Binary.right, indent + 1);
+        },
+
+        Node.Tag.FunctionDef => {
+            const ed: ExtraData = ast.extra_data.items[nodedata.Unary];
+
+            try std.fmt.format(
+                str,
+                "FUNCTION: {s}\n",
+                .{ed.FunctionDef.name},
+            );
+
+            for (ed.FunctionDef.block.items) |bidx|
+                try prettyPrintInternal(str, ast, bidx, indent + 1);
+        },
+        Node.Tag.FunctionCall => {},
+    }
+}

@@ -43,7 +43,23 @@ inline fn pushNodeWithExtra(self: *Self, node: Node, ext: ExtraData) u64 {
 }
 
 fn expect(self: *Self, tag: Token.Tag, comptime move: bool) !u64 {
-    if (self.ast.getTokTags()[self.idx] != tag) {
+    const current = self.ast.getTokTags()[self.idx];
+    if (current != tag) {
+        var str = std.ArrayListUnmanaged(u8){};
+
+        std.fmt.format(
+            str.writer(self.alloc),
+            "Unexpected token <{?}>, when expecting <{?}>.",
+            .{ current, tag },
+        ) catch std.debug.panic("", .{});
+
+        self.diagnostics.push_error(
+            _diagnostics.Diagnostic{
+                .what = str.toOwnedSlice(self.alloc) catch std.debug.panic("", .{}),
+                .where = self.ast.getTokSlice()[self.idx],
+            },
+        );
+
         return error.Misparse;
     } else {
         const idx = self.idx;
@@ -55,7 +71,7 @@ fn expect(self: *Self, tag: Token.Tag, comptime move: bool) !u64 {
 fn parseFactor(self: *Self) Error!u64 {
     const tag = self.ast.getTokTags()[self.idx];
 
-    self.idx += 1;
+    defer self.idx += 1;
 
     switch (tag) {
         .Integer => return self.pushNode(Node{
@@ -162,6 +178,8 @@ fn parseBlock(self: *Self) Error!std.ArrayListUnmanaged(u64) {
             try self.parseExpr(),
         ) catch std.debug.panic("memory error in blocknodes, at parseBlock", .{});
 
+        if (self.ast.getTokTags()[self.idx] == .EOF) break;
+
         const nextBlockDepth = self.ast.getTokSlice()[
             try self.expect(
                 .Whitespace,
@@ -192,6 +210,7 @@ pub fn parse(
     _ = self.pushNode(Node{ .tag = .Add, .data = .{ .null = {} } });
     const block = try self.parseBlock();
     self.ast.nodes.items(.tag)[0] = .FunctionDef;
+
     self.ast.extra_data.append(
         self.alloc,
         ExtraData{ .FunctionDef = .{
@@ -199,6 +218,11 @@ pub fn parse(
             .block = block,
         } },
     ) catch std.debug.panic("", .{});
+
+    self.ast.nodes.items(.data)[0] = .{ .Unary = self.ast.extra_data.items.len - 1 };
+
+    // temp. push 0 as the "main" function
+    self.ast.functions.append(self.alloc, 0) catch std.debug.panic("", .{});
 
     for (self.ast.nodes.items(.tag)) |*n| {
         std.debug.print("{?}\n", .{n});

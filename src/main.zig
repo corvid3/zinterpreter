@@ -2,6 +2,7 @@ const std = @import("std");
 const _diagnostics = @import("diagnostics.zig");
 const lexer = @import("lexer.zig");
 const parser = @import("parser.zig");
+const Ast = @import("Ast.zig");
 
 // allow for a max source-file size of 1M
 const MAX_FILESIZE = 1024 * 1024;
@@ -79,11 +80,11 @@ pub fn main() !void {
 
     var toks = try lexer.lex(alloc, &diagnostics, filedata);
 
-    var tokt = toks.items(.tag);
-    var toksl = toks.items(.slice);
-    for (0..toks.len) |l| {
-        std.debug.print("{?} {?}\n", .{ tokt[l], toksl[l].len });
-    }
+    // var tokt = toks.items(.tag);
+    // var toksl = toks.items(.slice);
+    // for (0..toks.len) |l| {
+    //     std.debug.print("{?} {?}\n", .{ tokt[l], toksl[l].len });
+    // }
 
     // if there are errors in the lexing step, print, and halt
     if (diagnostics.has_errors()) {
@@ -99,5 +100,7 @@ pub fn main() !void {
         return;
     };
 
-    _ = nodes;
+    var nodespp = try Ast.prettyPrint(alloc, nodes);
+
+    std.debug.print("{s}\n", .{nodespp});
 }

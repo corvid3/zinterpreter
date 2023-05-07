@@ -40,15 +40,18 @@ inline fn peekChar(self: *Self) ?u8 {
 }
 
 inline fn rtok(self: *Self, tag: Token.Tag) Token {
-    const out = Token{ .tag = tag, .slice = self.str[self.begin..self.idx] };
+    const out = Token{ .tag = tag, .slice = self.str[self.begin .. self.idx + 1] };
     self.idx += 1;
     return out;
 }
 
 fn lexOne(self: *Self) error{ EOF, UnknownToken, Err }!Token {
-    std.debug.print("{?} ", .{self.peekChar()});
     if ((self.peekChar() orelse return error.EOF) == '\n') {
         while ((self.peekChar() orelse 0x00) == ' ') : (_ = self.nextChar()) {}
+
+        // another dumb hack
+        self.begin += 1;
+
         return self.rtok(.Whitespace);
     }
 
