@@ -20,10 +20,9 @@ const BlockTranslator = struct {
     current_block: ir.Block = .{},
 
     inline fn push_instr(self: *@This(), instr: ir.Instruction) void {
-        self.program.instructions.append(self.alloc, instr) catch std.debug.panic("", .{});
         self.current_block.instructions.append(
             self.alloc,
-            self.program.instructions.len - 1,
+            instr,
         ) catch std.debug.panic("", .{});
     }
 
@@ -75,7 +74,7 @@ const BlockTranslator = struct {
             else => unreachable,
         });
 
-        return self.current_block.instructions.items.len - 1;
+        return self.current_block.instructions.len - 1;
     }
 
     // uses "blocks" array list to return the list of all irBlocks that this function generates

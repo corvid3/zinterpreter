@@ -1,7 +1,6 @@
 const std = @import("std");
 
 pub const Program = struct {
-    instructions: std.MultiArrayList(Instruction) = .{},
     functions: std.ArrayListUnmanaged(Function) = .{},
     blocks: std.ArrayListUnmanaged(Block) = .{},
 };
@@ -15,8 +14,7 @@ pub const Function = struct {
 };
 
 pub const Block = struct {
-    // contains a list of indexes into the instruction-list
-    instructions: std.ArrayListUnmanaged(u64) = .{},
+    instructions: std.MultiArrayList(Instruction) = .{},
 };
 
 pub const Instruction = struct {
@@ -45,9 +43,10 @@ pub const Instruction = struct {
     };
 };
 
-fn pretty_print_instruction(program: Program, str: std.ArrayListUnmanaged(u8).Writer, instridx: u64) void {
-    const instrtag = program.instructions.items(.tag)[instridx];
-    const instrdata = program.instructions.items(.data)[instridx];
+fn pretty_print_instruction(program: Program, block: *const Block, str: std.ArrayListUnmanaged(u8).Writer, instridx: u64) void {
+    _ = program;
+    const instrtag = block.instructions.items(.tag)[instridx];
+    const instrdata = block.instructions.items(.data)[instridx];
 
     std.fmt.format(str, "{d}", .{instridx}) catch std.debug.panic("", .{});
 
@@ -68,10 +67,8 @@ fn pretty_print_block(program: Program, blockidx: u64, str: std.ArrayListUnmanag
     const block = program.blocks.items[blockidx];
     std.fmt.format(str, "  BLOCK {d}:\n", .{blockidx}) catch std.debug.panic("", .{});
 
-    std.debug.print("ARARSRAS {d}\n", .{block.instructions.items.len});
-
-    for (block.instructions.items) |iidx|
-        pretty_print_instruction(program, str, iidx);
+    for (0..block.instructions.len) |iidx|
+        pretty_print_instruction(program, &block, str, iidx);
 }
 
 fn pretty_print_function(program: Program, function: Function, str: std.ArrayListUnmanaged(u8).Writer) void {
