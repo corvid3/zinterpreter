@@ -3,6 +3,8 @@ const _diagnostics = @import("diagnostics.zig");
 const lexer = @import("lexer.zig");
 const parser = @import("parser.zig");
 const Ast = @import("Ast.zig");
+const ast2ir = @import("ast2ir.zig");
+const ir = @import("ir.zig");
 
 // allow for a max source-file size of 1M
 const MAX_FILESIZE = 1024 * 1024;
@@ -103,4 +105,10 @@ pub fn main() !void {
     var nodespp = try Ast.prettyPrint(alloc, nodes);
 
     std.debug.print("{s}\n", .{nodespp});
+
+    var program = ast2ir.translate_ast(alloc, nodes, &diagnostics);
+
+    var instrpp = ir.pretty_print(alloc, program);
+
+    std.debug.print("{s}\n", .{instrpp.items});
 }

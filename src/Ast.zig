@@ -61,18 +61,18 @@ pub const Node = struct {
 pub const ExtraData = union {
     null: void,
 
-    FunctionDef: struct {
-        name: []const u8,
+    FunctionDef: FunctionDef,
+    FunctionCall: FunctionCall,
 
+    pub const FunctionDef = struct {
+        name: []const u8,
         block: std.ArrayListUnmanaged(u64),
-    },
+    };
 
-    FunctionCall: struct {
+    pub const FunctionCall = struct {
         name: []const u8,
-
-        /// indices into the node-list, params are in order left->right
         params: []const u64,
-    },
+    };
 
     pub fn deinit(self: *ExtraData, alloc: std.mem.Allocator) void {
         switch (self) {
