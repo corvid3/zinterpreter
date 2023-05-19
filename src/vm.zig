@@ -1,8 +1,55 @@
 const std = @import("std");
 
-const Byte = enum(u8) {
+fn RefCount(comptime T: type) type {
+    return struct {
+        const Data = @This();
+        const Handle = struct {
+            _data: *Data,
+
+            pub fn deinit(self: Handle) @This() {
+                self.data.uncount();
+            }
+
+            /// returns a pointer to the data contained
+            /// can also be used for getting "weak references"
+            pub fn data(self: Handle) *T {
+                return &self._data.data;
+            }
+
+            pub fn get(self: *@This()) Handle {
+                self.count += 1;
+                return Handle{ .data = self };
+            }
+
+            pub fn release(self: *@This(), alloc: std.mem.Allocator) void {
+                if (self.count == 0 or self.count - 1 == 0) {
+                    alloc.free(self);
+                } else self.count -= 1;
+            }
+        };
+
+        data: T,
+        count: u64,
+
+        pub fn init(alloc: std.mem.Allocator, data: T) !Handle {
+            if (@TypeOf(data) == RefCount) {}
+            return alloc.create(@This()){
+                .data = data,
+            };
+        }
+    };
+}
+
+fn testing() void {
+    var testingalloc = std.testing.allocator;
+    var refcount: RefCount(u8).Handle = RefCount(u8).init(testingalloc).get();
+    defer refcount.release();
+}
+
+pub const Byte = enum(u8) {
     // perform no operation
     NoOp = 0x00,
+    PushNull = 0x01,
 
     PushInt = 0x10,
     PushDub = 0x11,
@@ -16,11 +63,16 @@ const Byte = enum(u8) {
     MulDub = 0x27,
     DivDub = 0x28,
 
+    NegateInt = 0x2a,
+    NegateDub = 0x2b,
+
+    Return = 0xA5,
+
     // immediately halt the execution engine
     Halt = 0xFF,
 };
 
-const Value = union(enum(u8)) {
+pub const Value = union(enum(u8)) {
     Dub: f64,
     Int: i64,
 
@@ -30,16 +82,16 @@ const Value = union(enum(u8)) {
     FuncPtr: *const Function,
 };
 
-const Function = struct {
+pub const Function = struct {
     hash: u64,
     name: []const u8,
-    bytes: []const Byte,
+    bytes: std.ArrayListUnmanaged(Byte),
     consts: []const Value,
 };
 
-const Executable = struct {
-    functions: []const Function,
-    predefined_globals: []const struct { .val = Value, .name = []const u8 },
+pub const Executable = struct {
+    functions: std.ArrayListUnmanaged(Function),
+    predefined_globals: std.ArrayListUnmanaged(struct { val: Value, name: []const u8 }),
 };
 
 const ExecutionFrame = struct {
@@ -56,7 +108,7 @@ const VMError = error{
     NoSuchFunction,
 };
 
-const VM = struct {
+pub const VM = struct {
     const Self = @This();
 
     alloc: std.mem.Allocator,

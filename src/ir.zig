@@ -20,6 +20,7 @@ pub const Block = struct {
 pub const Instruction = struct {
     tag: Tag,
     data: Data,
+    type: Type,
 
     pub const Tag = enum(u8) {
         Add,
@@ -40,6 +41,12 @@ pub const Instruction = struct {
 
         Binary: struct { left: u64, right: u64 },
         Unary: u64,
+    };
+
+    // the resultant type of the SSA operation, e.g. an addition of two integers => integer
+    pub const Type = enum(u8) {
+        Integer,
+        Double,
     };
 };
 

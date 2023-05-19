@@ -5,6 +5,7 @@ const parser = @import("parser.zig");
 const Ast = @import("Ast.zig");
 const ast2ir = @import("ast2ir.zig");
 const ir = @import("ir.zig");
+const ir2bc = @import("ir2bc.zig");
 
 // allow for a max source-file size of 1M
 const MAX_FILESIZE = 1024 * 1024;
@@ -111,4 +112,7 @@ pub fn main() !void {
     var instrpp = ir.pretty_print(alloc, program);
 
     std.debug.print("{s}\n", .{instrpp.items});
+
+    var exec = ir2bc.translate(alloc, program);
+    _ = exec;
 }
