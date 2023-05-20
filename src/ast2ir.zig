@@ -33,6 +33,7 @@ const BlockTranslator = struct {
         self.push_instr(switch (node) {
             .Integer => ir.Instruction{
                 .tag = .Integer,
+                .type = .Integer,
                 .data = .{
                     .Integer = std.fmt.parseInt(
                         i64,
@@ -44,6 +45,7 @@ const BlockTranslator = struct {
 
             .Double => ir.Instruction{
                 .tag = .Double,
+                .type = .Double,
                 .data = .{
                     .Double = std.fmt.parseFloat(
                         f64,
@@ -54,6 +56,7 @@ const BlockTranslator = struct {
 
             .Add, .Sub, .Mul, .Div => |x| ir.Instruction{
                 .tag = std.meta.stringToEnum(ir.Instruction.Tag, @tagName(x)) orelse std.debug.panic("", .{}),
+                .type = .Undecided,
                 .data = .{
                     .Binary = .{
                         .left = self.translate_node(node_data.Binary.left),
@@ -64,6 +67,7 @@ const BlockTranslator = struct {
 
             .UnaryNegation => ir.Instruction{
                 .tag = .Negation,
+                .type = .Undecided,
                 .data = .{
                     .Unary = self.translate_node(node_data.Unary),
                 },
@@ -74,7 +78,7 @@ const BlockTranslator = struct {
             else => unreachable,
         });
 
-        return self.current_block.instructions.len - 1;
+        return self.current_block.instructions.items.len - 1;
     }
 
     // uses "blocks" array list to return the list of all irBlocks that this function generates
@@ -82,6 +86,19 @@ const BlockTranslator = struct {
         // create a block
         for (func.block.items) |nidx|
             _ = self.translate_node(nidx);
+
+        // if this block does not end with either a branch or a return, append a void return instruction
+
+        self.current_block.instructions.append(self.alloc, ir.Instruction{
+            .tag = .Void,
+            .type = .Void,
+        }) catch std.debug.panic("", .{});
+
+        self.current_block.instructions.append(self.alloc, ir.Instruction{
+            .tag = .Return,
+            .data = .{ .Unary = self.current_block.instructions.items.len - 1 },
+            .type = .Undecided,
+        }) catch std.debug.panic("", .{});
 
         self.program.blocks.append(
             self.alloc,
