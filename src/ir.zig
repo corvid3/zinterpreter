@@ -5,7 +5,6 @@ const _diagnostics = @import("diagnostics.zig");
 
 pub const Program = struct {
     functions: std.ArrayListUnmanaged(Function) = .{},
-    blocks: std.ArrayListUnmanaged(Block) = .{},
 };
 
 pub const Function = struct {
@@ -13,12 +12,10 @@ pub const Function = struct {
 
     // contains a list of indexes into the block-list
     // the first block is the "begin" block
-    blocks: std.ArrayListUnmanaged(u64),
+    blocks: std.ArrayListUnmanaged(Block),
 };
 
-pub const Block = struct {
-    instructions: std.ArrayListUnmanaged(Instruction) = .{},
-};
+pub const Block = std.ArrayListUnmanaged(Instruction);
 
 pub const Instruction = struct {
     tag: Tag,
@@ -71,55 +68,69 @@ pub const Instruction = struct {
     };
 };
 
-/// taking in two types, corresponding to a binary operation
-pub fn typeResolution(
+/// helper struct, not visible to the outside world
+/// takes in a reference to a program, and mutates it
+const TypePropogator = struct {
+    const Self = @This();
+
+    diagnostics: *_diagnostics.DiagnosticQueue,
     program: *Program,
-    tag: Instruction.Tag,
-    operands: []const *Instruction,
-) !Instruction.Type {
-    _ = program;
-    return switch (tag) {
-        .Add => {
-            if (operands[0].type == .Integer and operands[1].type == .Integer)
-                .Integer
-            else if ((operands[0].type == .Double or operands[0].type == .Integer) and (operands[1].type == .Double or operands[1].type == .Integer))
-                .Double
-            else
-                return error.InvalidTypes;
-        },
 
-        else => Instruction.Type.Null,
-    };
-}
+    /// this is a mess of a method, but it works?
+    /// dont touch, it's in 5 dimensions and is fragile
+    fn propogate(self: *Self) void {
+        for (self.program.functions.items) |f| {
+            for (f.blocks.items) |b| {
+                for (b.items) |*_instr| {
+                    var instr: *Instruction = _instr;
+                    switch (instr.tag) {
+                        .Add, .Sub, .Mul => {
+                            const lt = b.items[instr.data.Binary.left].type;
+                            const rt = b.items[instr.data.Binary.right].type;
 
-/// performs type propogration on a program
-pub fn typePropogation(diagnostics: _diagnostics.DiagnosticQueue, program: *Program) void {
-    for (program.functions.items) |f| {
-        for (f.blocks.items) |b| {
-            for (b.instructions.items) |*_instr| {
-                var instr: *Instruction = _instr;
-                switch (instr.tag) {
-                    .Add => {
-                        instr.type = typeResolution(program, .Add, &.{ instr.data.Binary.left, instr.data.Binary.right }) catch x: {
-                            diagnostics.push_error(_diagnostics.Diagnostic{
-                                .what = "Invalid types of a binary add operation",
-                                .where = "",
-                            });
-                            break :x .Invalid;
-                        };
-                    },
-                    else => {},
+                            const ltt = std.meta.activeTag(lt);
+                            const rtt = std.meta.activeTag(rt);
+
+                            if ((lt != .Double and lt != .Integer) or (rt != .Double and rt != .Integer)) {
+                                self.diagnostics.push_error(_diagnostics.Diagnostic{
+                                    .what = "Invalid type in binary operation",
+                                    .where = "",
+                                });
+
+                                instr.type = .Invalid;
+                                break;
+                            }
+
+                            instr.type = if (ltt == rtt) lt else .Double;
+                        },
+                        else => {},
+                    }
                 }
             }
         }
     }
+};
+
+/// mutates program
+pub fn typePropogate(program: *Program, diagnostics: *_diagnostics.DiagnosticQueue) void {
+    var tp = TypePropogator{
+        .diagnostics = diagnostics,
+        .program = program,
+    };
+
+    tp.propogate();
 }
 
-fn pretty_print_instruction(program: Program, block: *const Block, str: std.ArrayListUnmanaged(u8).Writer, instridx: u64) void {
-    _ = program;
-    const instrtag = block.instructions.items[instridx].tag;
-    const instrdata = block.instructions.items[instridx].data;
-    const instrtype = block.instructions.items[instridx].type;
+fn pretty_print_instruction(
+    function: Function,
+    block: *const std.ArrayListUnmanaged(Instruction),
+    str: std.ArrayListUnmanaged(u8).Writer,
+    instridx: u64,
+) void {
+    _ = function;
+    const instrtag = block.items[instridx].tag;
+    const instrdata = block.items[instridx].data;
+    const instrtype = block.items[instridx].type;
 
     std.fmt.format(str, "{d}", .{instridx}) catch std.debug.panic("", .{});
 
@@ -175,18 +186,19 @@ fn pretty_print_instruction(program: Program, block: *const Block, str: std.Arra
     } catch std.debug.panic("", .{});
 }
 
-fn pretty_print_block(program: Program, blockidx: u64, str: std.ArrayListUnmanaged(u8).Writer) void {
-    const block = program.blocks.items[blockidx];
+fn pretty_print_block(function: Function, blockidx: u64, str: std.ArrayListUnmanaged(u8).Writer) void {
+    const block = function.blocks.items[blockidx];
     std.fmt.format(str, "  BLOCK {d}:\n", .{blockidx}) catch std.debug.panic("", .{});
 
-    for (0..block.instructions.items.len) |iidx|
-        pretty_print_instruction(program, &block, str, iidx);
+    for (0..block.items.len) |iidx|
+        pretty_print_instruction(function, &block, str, iidx);
 }
 
 fn pretty_print_function(program: Program, function: Function, str: std.ArrayListUnmanaged(u8).Writer) void {
+    _ = program;
     std.fmt.format(str, "FUNCTION: {s}\n", .{function.name}) catch std.debug.panic("", .{});
-    for (function.blocks.items) |block|
-        pretty_print_block(program, block, str);
+    for (0..function.blocks.items.len) |block|
+        pretty_print_block(function, block, str);
 }
 
 pub fn pretty_print(alloc: std.mem.Allocator, program: Program) std.ArrayListUnmanaged(u8) {

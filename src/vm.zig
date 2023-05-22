@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const ENABLE_DEBUG = false;
+
 fn RefCount(comptime T: type) type {
     return struct {
         const Data = @This();
@@ -107,6 +109,8 @@ const VMError = error{
     MalformedFunction,
     MalformedGlobal,
 
+    MalformedExecutable,
+
     NoSuchFunction,
 };
 
@@ -212,18 +216,14 @@ pub const RVM = struct {
 
         inline fn next_u32(self: *Self) !u32 {
             var long = @ptrCast(*align(1) u32, &self.assoc_func.bytes.items[self.ip]).*;
-            self.ip += 3;
+            self.ip += 4;
             return long;
         }
 
         inline fn next_u64(self: *Self) !u64 {
             var longlong = @ptrCast(*align(1) u64, &self.assoc_func.bytes.items[self.ip]).*;
-            self.ip += 7;
+            self.ip += 8;
             return longlong;
-        }
-
-        inline fn pop(self: *Self) Value {
-            return self.stack.pop();
         }
 
         /// runs until crashing, or returns a value
@@ -231,16 +231,46 @@ pub const RVM = struct {
             defer self.deinit();
 
             while (true) {
-                var byte = @intToEnum(Byte, self.assoc_func.bytes.items[self.ip]);
+                var byte = @intToEnum(Byte, try self.next_u8());
+
+                if (ENABLE_DEBUG)
+                    std.debug.print(
+                        "IDX: {d}\x1b[10GBYTE: {any}\x1b[35GSIZE OF STACK: {d}\n",
+                        .{
+                            self.ip,
+                            byte,
+                            self.stack.items.len,
+                        },
+                    );
 
                 switch (byte) {
                     .NoOp => self.ip += 1,
-                    .PushNull => try self.stack.append(self.context.alloc, .{ .Null = {} }),
-                    .PushInt => try self.stack.append(self.context.alloc, .{ .Int = @bitCast(i64, try self.next_u64()) }),
 
-                    .AddInt => try self.stack.append(self.context.alloc, .{ .Int = self.pop().Int + self.pop().Int }),
+                    .PushNull => try self.stack.append(
+                        self.context.alloc,
+                        .{ .Null = {} },
+                    ),
+                    .PushInt => {
+                        const int_val = @bitCast(i64, try self.next_u64());
 
-                    .Return => return self.stack.pop(),
+                        if (ENABLE_DEBUG)
+                            std.debug.print("INT_VAL: {d}\n", .{int_val});
+
+                        try self.stack.append(
+                            self.context.alloc,
+                            .{ .Int = int_val },
+                        );
+                    },
+
+                    .AddInt => try self.stack.append(
+                        self.context.alloc,
+                        .{ .Int = self.stack.pop().Int + self.stack.pop().Int },
+                    ),
+
+                    .Return => {
+                        std.debug.print("TEST: {d}\n", .{self.stack.items.len});
+                        return self.stack.pop();
+                    },
 
                     else => std.debug.panic("", .{}),
                 }

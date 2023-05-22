@@ -109,13 +109,11 @@ pub fn main() !void {
     std.debug.print("{s}\n", .{nodespp});
 
     var program = ast2ir.translate_ast(alloc, nodes, &diagnostics);
-
+    ir.typePropogate(&program, &diagnostics);
     var instrpp = ir.pretty_print(alloc, program);
-
     std.debug.print("{s}\n", .{instrpp.items});
 
     var exec = ir2bc.translate(alloc, program);
-
     std.debug.print("{any}\n", .{exec.functions.items[0].bytes.items});
 
     // create a VM

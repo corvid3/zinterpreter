@@ -92,14 +92,14 @@ const FunctionTranslator = struct {
     }
 
     fn translate_block(self: *@This(), block: ir.Block) void {
-        for (block.instructions.items) |instr| {
+        for (block.items) |instr| {
             self.translate_instruction(instr);
         }
     }
 
     fn translate(self: *@This(), func: ir.Function) vm.Function {
-        for (func.blocks.items) |bidx|
-            self.translate_block(self.program.blocks.items[bidx]);
+        for (func.blocks.items) |block|
+            self.translate_block(block);
 
         return vm.Function{
             .name = func.name,

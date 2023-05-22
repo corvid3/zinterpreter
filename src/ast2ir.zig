@@ -17,10 +17,10 @@ const BlockTranslator = struct {
     diagnostics: *_diagnostics.DiagnosticQueue,
 
     program: *ir.Program,
-    current_block: ir.Block = .{},
+    current_block: std.ArrayListUnmanaged(ir.Instruction) = .{},
 
     inline fn push_instr(self: *@This(), instr: ir.Instruction) void {
-        self.current_block.instructions.append(
+        self.current_block.append(
             self.alloc,
             instr,
         ) catch std.debug.panic("", .{});
@@ -78,36 +78,31 @@ const BlockTranslator = struct {
             else => unreachable,
         });
 
-        return self.current_block.instructions.items.len - 1;
+        return self.current_block.items.len - 1;
     }
 
     // uses "blocks" array list to return the list of all irBlocks that this function generates
-    fn translate(self: *@This(), func: Ast.ExtraData.FunctionDef, blocks: *std.ArrayListUnmanaged(u64)) void {
+    fn translate(self: *@This(), func: Ast.ExtraData.FunctionDef, blocks: *std.ArrayListUnmanaged(ir.Block)) void {
         // create a block
         for (func.block.items) |nidx|
             _ = self.translate_node(nidx);
 
         // if this block does not end with either a branch or a return, append a void return instruction
 
-        self.current_block.instructions.append(self.alloc, ir.Instruction{
+        self.current_block.append(self.alloc, ir.Instruction{
             .tag = .Void,
             .type = .Void,
         }) catch std.debug.panic("", .{});
 
-        self.current_block.instructions.append(self.alloc, ir.Instruction{
+        self.current_block.append(self.alloc, ir.Instruction{
             .tag = .Return,
-            .data = .{ .Unary = self.current_block.instructions.items.len - 1 },
+            .data = .{ .Unary = self.current_block.items.len - 1 },
             .type = .Undecided,
         }) catch std.debug.panic("", .{});
 
-        self.program.blocks.append(
-            self.alloc,
-            self.current_block,
-        ) catch std.debug.panic("", .{});
-
         blocks.append(
             self.alloc,
-            self.program.blocks.items.len - 1,
+            self.current_block,
         ) catch std.debug.panic("", .{});
     }
 };
@@ -125,7 +120,7 @@ pub fn translate_ast(alloc: std.mem.Allocator, ast: Ast, diagnostics: *_diagnost
     for (self.ast.functions.items) |fidx| {
         const func = self.ast.extra_data.items[fidx].FunctionDef;
 
-        var blocks = std.ArrayListUnmanaged(u64){};
+        var blocks = std.ArrayListUnmanaged(ir.Block){};
 
         self.translate(func, &blocks);
         self.program.functions.append(
