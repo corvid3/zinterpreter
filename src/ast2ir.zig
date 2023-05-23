@@ -54,19 +54,41 @@ const BlockTranslator = struct {
                 },
             },
 
-            .Add, .Sub, .Mul, .Div => |x| ir.Instruction{
-                .tag = std.meta.stringToEnum(ir.Instruction.Tag, @tagName(x)) orelse std.debug.panic("", .{}),
-                .type = .Undecided,
-                .data = .{
-                    .Binary = .{
-                        .left = self.translate_node(node_data.Binary.left),
-                        .right = self.translate_node(node_data.Binary.right),
+            .Add, .Sub, .Mul, .Div => |x| b: {
+                var left: u64 = undefined;
+                var right: u64 = undefined;
+
+                var left_tag = self.ast.nodes.items(.tag)[node_data.Binary.left];
+                if (left_tag == .Mul or left_tag == .Div) {
+                    right = self.translate_node(node_data.Binary.right);
+                    left = self.translate_node(node_data.Binary.left);
+                } else {
+                    left = self.translate_node(node_data.Binary.left);
+                    right = self.translate_node(node_data.Binary.right);
+                }
+
+                break :b ir.Instruction{
+                    .tag = std.meta.stringToEnum(ir.Instruction.Tag, @tagName(x)) orelse std.debug.panic("", .{}),
+                    .type = .Undecided,
+                    .data = .{
+                        .Binary = .{
+                            .left = left,
+                            .right = right,
+                        },
                     },
-                },
+                };
             },
 
             .UnaryNegation => ir.Instruction{
                 .tag = .Negation,
+                .type = .Undecided,
+                .data = .{
+                    .Unary = self.translate_node(node_data.Unary),
+                },
+            },
+
+            .Return => ir.Instruction{
+                .tag = .Return,
                 .type = .Undecided,
                 .data = .{
                     .Unary = self.translate_node(node_data.Unary),
@@ -88,17 +110,18 @@ const BlockTranslator = struct {
             _ = self.translate_node(nidx);
 
         // if this block does not end with either a branch or a return, append a void return instruction
+        if (self.current_block.getLast().tag != .Return) {
+            self.current_block.append(self.alloc, ir.Instruction{
+                .tag = .Void,
+                .type = .Void,
+            }) catch std.debug.panic("", .{});
 
-        self.current_block.append(self.alloc, ir.Instruction{
-            .tag = .Void,
-            .type = .Void,
-        }) catch std.debug.panic("", .{});
-
-        self.current_block.append(self.alloc, ir.Instruction{
-            .tag = .Return,
-            .data = .{ .Unary = self.current_block.items.len - 1 },
-            .type = .Undecided,
-        }) catch std.debug.panic("", .{});
+            self.current_block.append(self.alloc, ir.Instruction{
+                .tag = .Return,
+                .data = .{ .Unary = self.current_block.items.len - 1 },
+                .type = .Undecided,
+            }) catch std.debug.panic("", .{});
+        }
 
         blocks.append(
             self.alloc,

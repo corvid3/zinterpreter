@@ -262,13 +262,24 @@ pub const RVM = struct {
                         );
                     },
 
-                    .AddInt => try self.stack.append(
-                        self.context.alloc,
-                        .{ .Int = self.stack.pop().Int + self.stack.pop().Int },
-                    ),
+                    .AddInt, .SubInt, .MulInt => {
+                        // the left side is always pushed on before the right
+                        const r = self.stack.pop().Int;
+                        const l = self.stack.pop().Int;
+                        const o = switch (byte) {
+                            .AddInt => l + r,
+                            .SubInt => l - r,
+                            .MulInt => l * r,
+                            else => unreachable,
+                        };
+
+                        try self.stack.append(
+                            self.context.alloc,
+                            .{ .Int = o },
+                        );
+                    },
 
                     .Return => {
-                        std.debug.print("TEST: {d}\n", .{self.stack.items.len});
                         return self.stack.pop();
                     },
 

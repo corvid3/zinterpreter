@@ -24,4 +24,7 @@ pub const Tag = enum(u8) {
 
     LeftParanthesis,
     RightParanthesis,
+
+    // keywords
+    Return,
 };

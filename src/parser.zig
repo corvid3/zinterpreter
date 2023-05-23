@@ -42,6 +42,14 @@ inline fn pushNodeWithExtra(self: *Self, node: Node, ext: ExtraData) u64 {
     return self.pushNode(node);
 }
 
+fn maybe(self: *Self, tag: Token.Tag, comptime move: bool) bool {
+    const current = self.ast.getTokTags()[self.idx];
+    if (current == tag) {
+        if (move) self.idx += 1;
+        return true;
+    } else return false;
+}
+
 fn expect(self: *Self, tag: Token.Tag, comptime move: bool) !u64 {
     const current = self.ast.getTokTags()[self.idx];
     if (current != tag) {
@@ -162,6 +170,15 @@ fn parseExpr(self: *Self) Error!u64 {
     return left;
 }
 
+fn parseExprOrStatement(self: *Self) Error!u64 {
+    std.debug.print("TEST: {any}\n", .{self.ast.getTokTags()[self.idx]});
+    if (self.maybe(.Return, true)) {
+        return self.pushNode(Node{ .tag = .Return, .data = .{ .Unary = try self.parseExpr() } });
+    } else {
+        return self.parseExpr();
+    }
+}
+
 fn parseBlock(self: *Self) Error!std.ArrayListUnmanaged(u64) {
     const blockDepth = self.ast.getTokSlice()[
         try self.expect(
@@ -175,7 +192,7 @@ fn parseBlock(self: *Self) Error!std.ArrayListUnmanaged(u64) {
     while (true) {
         blocknodes.append(
             self.alloc,
-            try self.parseExpr(),
+            try self.parseExprOrStatement(),
         ) catch std.debug.panic("memory error in blocknodes, at parseBlock", .{});
 
         if (self.ast.getTokTags()[self.idx] == .EOF) break;

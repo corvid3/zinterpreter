@@ -95,6 +95,21 @@ fn lexOne(self: *Self) error{ EOF, UnknownToken, Err }!Token {
 
                     return error.Err;
                 }
+            } else if (std.ascii.isAlphabetic(c)) {
+                while (true) {
+                    const c2 = self.peekChar() orelse break;
+                    if (!std.ascii.isAlphanumeric(c2)) break;
+                    self.idx += 1;
+                }
+
+                const slice = self.str[self.begin..self.idx];
+
+                // std.debug.print("TOKEN: {s}\n", .{slice});
+
+                if (std.mem.eql(u8, slice, "return"))
+                    return self.rtok(.Return)
+                else
+                    return self.rtok(.Identifier);
             } else {
                 self.diagnostics.push_error(
                     _diagnostics.Diagnostic{

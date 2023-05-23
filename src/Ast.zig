@@ -39,6 +39,8 @@ pub const Node = struct {
 
         FunctionCall,
         FunctionDef,
+
+        Return,
     };
 
     pub const Data = union {
@@ -146,6 +148,12 @@ fn prettyPrintInternal(str: std.ArrayList(u8).Writer, ast: @This(), fidx: u64, i
             for (ed.FunctionDef.block.items) |bidx|
                 try prettyPrintInternal(str, ast, bidx, indent + 1);
         },
+
         Node.Tag.FunctionCall => {},
+
+        Node.Tag.Return => {
+            try std.fmt.format(str, "RETURN:\n", .{});
+            try prettyPrintInternal(str, ast, nodedata.Unary, indent + 1);
+        },
     }
 }
